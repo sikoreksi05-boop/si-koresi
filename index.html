@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DATA OMR - Sistem Analisis Asesmen Cerdas</title>
+    <!-- Modern Font: Inter & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap"
+        rel="stylesheet">
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Chart.js for Statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- SheetJS for Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Initialize pdf.js worker
+        if (window['pdfjs-dist/build/pdf']) {
+            window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description"
+        content="Dashboard Guru untuk manajemen Ujian, Pemindaian Si-Koreksi berbasis AI, dan Rekapitulasi Nilai otomatis.">
+</head>
+
+<body>
+    <div class="responsive-layout">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Sidebar Navigation (Drawer Mode - Left) -->
+        <aside class="side-frame left" id="sideNavDrawer">
+            <div class="user-profile-side mb-20 p-10">
+                <div class="avatar-lg" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <strong id="sidebarName">Memuat...</strong>
+                    <p id="sidebarEmail"></p>
+                </div>
+            </div>
+
+            <nav class="side-nav">
+                <button class="side-nav-item active" data-view="dashboard">
+                    <ion-icon name="home-outline"></ion-icon>
+                    <span data-i18n="nav-home">Beranda Dashboard</span>
+                </button>
+
+                <button class="side-nav-item" data-view="results">
+                    <ion-icon name="stats-chart-outline"></ion-icon>
+                    <span data-i18n="nav-results">Rekap & Laporan</span>
+                </button>
+                <button class="side-nav-item" data-view="students">
+                    <ion-icon name="people-outline"></ion-icon>
+                    <span data-i18n="nav-students">Data Siswa</span>
+                </button>
+                <button class="side-nav-item" data-view="profile">
+                    <ion-icon name="person-outline"></ion-icon>
+                    <span data-i18n="nav-profile">Profil Guru</span>
+                </button>
+                <button class="side-nav-item" data-view="settings">
+                    <ion-icon name="settings-outline"></ion-icon>
+                    <span data-i18n="nav-settings">Pengaturan API</span>
+                </button>
+            </nav>
+
+            <div class="side-footer mt-auto" style="padding: 15px;">
+                <button onclick="handleLogout()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 12px; background: #fee2e2; color: #dc2626; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; box-sizing: border-box;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                    <ion-icon name="log-out-outline" style="font-size: 1.2rem;"></ion-icon>
+                    <span data-i18n="nav-logout">Keluar Sesi</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Interface -->
+        <div class="app-container">
+            <!-- Header (Menu & Profil) -->
+            <header class="top-bar">
+                <button class="btn-icon-plain" id="hamburgerBtn"><ion-icon name="menu-outline"></ion-icon></button>
+                <div style="display: flex; align-items: center; gap: 10px; margin-right: auto; margin-left: 15px;">
+                    <div
+                        style="width: 36px; height: 36px; background: linear-gradient(135deg, var(--primary), #6366f1); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.23);">
+                        <ion-icon name="qr-code-outline" style="color: white; font-size: 1.4rem;"></ion-icon>
+                    </div>
+                    <span class="app-title" style="margin: 0; font-size: 1.3rem;">SI-KORESI</span>
+                </div>
+            </header>
+
+            <main id="mainContent">
+                <!-- Views (Dashboard, Manage, Scan, Results, Settings) -->
+                <!-- 1. DASHBOARD (BERANDA) -->
+                <section id="view-dashboard" class="view">
+                    <!-- Greeting -->
+                    <div class="greeting-section" style="padding-bottom: 0;">
+                        <h1 id="greetingMsg" data-i18n="dash-welcome">Selamat Pagi, Pak Guru!</h1>
+                        <p id="dashSubtitle" class="text-muted mt-5" data-i18n="dash-subtitle">Pilih kategori penilaian
+                            untuk memulai ujian atau tugas.</p>
+                    </div>
+
+                    <!-- Stat Bar -->
+                    <div style="display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 20px 0;">
+                        <div class="card p-15 text-center" style="border-left: 4px solid var(--primary);">
+                            <div style="font-size: 26px; font-weight: 800; color: var(--primary);" id="statTotalScans">0
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">Total Scan
+                            </div>
+                        </div>
+                        <div class="card p-15 text-center" style="border-left: 4px solid var(--accent);">
+                            <div style="font-size: 26px; font-weight: 800; color: var(--accent);" id="statTotalKelas">0
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">Kelas Aktif
+                            </div>
+                        </div>
+                        <div class="card p-15 text-center" style="border-left: 4px solid #f59e0b;">
+                            <div style="font-size: 26px; font-weight: 800; color: #f59e0b;" id="statTotalSiswa">0</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">Total Siswa
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kategori Cards -->
+                    <h3
+                        style="font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                        Pilih Kategori Penilaian</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <button class="card cursor-pointer" onclick="openSetup('tugas')"
+                            style="border:none; padding: 18px; text-align: left; transition: transform 0.18s, box-shadow 0.18s;"
+                            onmouseover="this.style.transform='translateY(-3px)'"
+                            onmouseout="this.style.transform='translateY(0)'">
+                            <div
+                                style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#4338ca,#818cf8); display:flex; align-items:center; justify-content:center; color:white; font-size:22px; margin-bottom: 12px;">
+                                <ion-icon name="document-text"></ion-icon>
+                            </div>
+                            <div style="font-weight: 700; font-size: 15px;">Tugas</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Koreksi lembar
+                                tugas harian</div>
+                        </button>
+                        <button class="card cursor-pointer" onclick="openSetup('uh')"
+                            style="border:none; padding: 18px; text-align: left; transition: transform 0.18s, box-shadow 0.18s;"
+                            onmouseover="this.style.transform='translateY(-3px)'"
+                            onmouseout="this.style.transform='translateY(0)'">
+                            <div
+                                style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#f59e0b,#fcd34d); display:flex; align-items:center; justify-content:center; color:white; font-size:22px; margin-bottom: 12px;">
+                                <ion-icon name="create"></ion-icon>
+                            </div>
+                            <div style="font-weight: 700; font-size: 15px;">Ulangan Harian</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Koreksi ulangan
+                                mingguan</div>
+                        </button>
+                        <button class="card cursor-pointer" onclick="openSetup('uts')"
+                            style="border:none; padding: 18px; text-align: left; transition: transform 0.18s, box-shadow 0.18s;"
+                            onmouseover="this.style.transform='translateY(-3px)'"
+                            onmouseout="this.style.transform='translateY(0)'">
+                            <div
+                                style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#10b981,#6ee7b7); display:flex; align-items:center; justify-content:center; color:white; font-size:22px; margin-bottom: 12px;">
+                                <ion-icon name="book"></ion-icon>
+                            </div>
+                            <div style="font-weight: 700; font-size: 15px;">UTS</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Ujian Tengah
+                                Semester</div>
+                        </button>
+                        <button class="card cursor-pointer" onclick="openSetup('uas')"
+                            style="border:none; padding: 18px; text-align: left; transition: transform 0.18s, box-shadow 0.18s;"
+                            onmouseover="this.style.transform='translateY(-3px)'"
+                            onmouseout="this.style.transform='translateY(0)'">
+                            <div
+                                style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#ef4444,#fca5a5); display:flex; align-items:center; justify-content:center; color:white; font-size:22px; margin-bottom: 12px;">
+                                <ion-icon name="school"></ion-icon>
+                            </div>
+                            <div style="font-weight: 700; font-size: 15px;">UAS</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Ujian Akhir
+                                Semester</div>
+                        </button>
+                    </div>
+
+                </section>
+
+
+                <!-- 1B. SETUP MENU -->
+                <section id="view-setup" class="view hidden">
+                    <div class="view-header flex-between mb-20" style="align-items: center;">
+                        <button class="btn-text secondary mb-10" onclick="switchView('dashboard')"
+                            style="padding: 0; font-weight: 500;">
+                            <ion-icon name="arrow-back-outline"></ion-icon> <span data-i18n="btn-back">Kembali</span>
+                        </button>
+                    </div>
+
+                    <div class="card p-20 shadow-sm"
+                        style="max-width: 600px; margin: 0 auto; background: var(--surface);">
+                        <h2 class="mb-20 text-center"><span data-i18n="setup-title-prefix">Persiapan</span> <span
+                                id="setupCategoryLabel">Ujian</span></h2>
+                        <!-- SETUP: Kelas sekarang jadi dropdown -->
+                        <div class="form-group">
+                            <label data-i18n="setup-class">Kelas</label>
+                            <select id="setupKelas" class="form-control">
+                                <option value="">-- Pilih Kelas --</option>
+                                <!-- Diisi dari Data Siswa via JS -->
+                            </select>
+                            <p class="hint mt-5" style="font-size: 12px;">
+                                <ion-icon name="information-circle-outline"></ion-icon>
+                                Kelola kelas di menu <a href="javascript:void(0)" onclick="switchView('students')"
+                                    style="color: var(--primary); font-weight: 600;">Data Siswa</a>
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label data-i18n="setup-subject">Mata Pelajaran</label>
+                            <input type="text" id="setupMapel" class="form-control" placeholder="Fisika">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="setup-sequence">Urutan ke (Contoh: 1)</label>
+                            <input type="number" id="setupUrutan" class="form-control" placeholder="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="setup-date">Tanggal Ujian</label>
+                            <input type="date" id="setupDate" class="form-control">
+                        </div>
+                        <button class="btn primary full-width mt-20" onclick="startWorkspace()"><span
+                                data-i18n="btn-enter-workspace">Masuk ke Ruang Ujian</span>
+                            <ion-icon name="arrow-forward-outline"></ion-icon></button>
+                    </div>
+                </section>
+
+
+
+                <!-- 2. WORKSPACE UJIAN (SETUP KUNCI, PRINT Si-Koreksi, SCAN Si-Koreksi) -->
+                <section id="view-workspace" class="view hidden">
+                    <div class="view-header"
+                        style="border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px;">
+                        <div class="flex-between" style="align-items: center;">
+                            <div>
+                                <button class="btn-text secondary mb-10" onclick="switchView('setup')"
+                                    style="padding: 0; font-weight: 500;">
+                                    <ion-icon name="arrow-back-outline"></ion-icon> <span
+                                        data-i18n="btn-change-setup">Ganti Kelas / Mapel</span>
+                                </button>
+                                <h1 style="margin: 0; font-size: 1.5rem;" id="wsTitle">Nama Kelas - Mapel</h1>
+                                <p class="text-muted" id="wsSubtitle">Kategori Ujian</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-grid">
+                        <!-- Left Col: Kunci Jawaban & Cetak Si-Koreksi -->
+                        <div class="settings-col">
+                            <div class="card p-20 mb-20 shadow-sm">
+                                <h3 data-i18n="ws-key-title">1. Kunci Jawaban</h3>
+                                <p class="text-muted mb-10" style="font-size: 0.9rem;" data-i18n="ws-key-desc">Tentukan
+                                    format opsi dan pilih
+                                    jawaban untuk setiap nomor.</p>
+
+                                <div class="form-row mb-15">
+                                    <div class="form-group mb-0" style="flex: 1;">
+                                        <label data-i18n="ws-format">Format</label>
+                                        <select id="wsKeyFormat" class="form-control" onchange="generateKeyGrid()"
+                                            style="padding: 10px; font-size: 0.9rem;">
+                                            <option value="ABC">A - C</option>
+                                            <option value="ABCD" selected>A - D</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group mb-0" style="flex: 1;">
+                                        <label data-i18n="ws-questions-count">Jml Soal</label>
+                                        <input type="number" id="wsKeyLength" class="form-control" value="10" min="1"
+                                            max="50" onchange="generateKeyGrid()"
+                                            style="padding: 10px; font-size: 0.9rem;">
+                                    </div>
+                                </div>
+
+                                <div id="wsKeyGridContainer" class="mb-15"
+                                    style="max-height: 250px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; padding: 10px; background: #fafafa;">
+                                    <!-- Dynamic Questions go here -->
+                                </div>
+                                <input type="hidden" id="wsKeySequence">
+                                <div class="form-row">
+                                    <div class="form-group mb-0">
+                                        <label data-i18n="ws-weight-correct">Bobot Benar</label>
+                                        <input type="number" value="1" id="wsWeightCorrect" class="form-control">
+                                    </div>
+                                    <div class="form-group mb-0">
+                                        <label data-i18n="ws-weight-wrong">Bobot Salah</label>
+                                        <input type="number" value="0" id="wsWeightWrong" class="form-control">
+                                    </div>
+                                </div>
+                                <button class="btn success full-width mt-15" id="btnSaveWsKey"
+                                    data-i18n="btn-save-key">Simpan Kunci Jawaban</button>
+                            </div>
+
+                            <div class="card p-20 mb-20 shadow-sm">
+                                <h3 data-i18n="ws-print-title">2. Cetak Lembar</h3>
+                                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                                    <button class="btn primary outline full-width" onclick="printSiKoreksi('student')">
+                                        <ion-icon name="print-outline"></ion-icon> <span data-i18n="btn-print-sikoreksi">Cetak
+                                            Kertas Si-Koreksi</span>
+                                    </button>
+                                    <button class="btn secondary outline full-width" onclick="printSiKoreksi('master')">
+                                        <ion-icon name="key-outline"></ion-icon> <span
+                                            data-i18n="btn-print-master">Cetak Lembar Master</span>
+                                    </button>
+                                    <button class="btn success full-width" onclick="printSiKoreksi('bulk')">
+                                        <ion-icon name="people-circle-outline"></ion-icon> <span>Cetak Semua
+                                            Siswa</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Col: Pemindaian (Scan) -->
+                        <div class="settings-col">
+                            <div class="card p-20 shadow-sm"
+                                style="height: 100%; display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
+                                <h3
+                                    style="font-family: 'Outfit'; font-weight: 700; color: var(--text-color); margin-bottom: 4px;">
+                                    3. Pengecekan Lembar Siswa</h3>
+                                <div id="quotaStatus" class="mb-15"
+                                    style="display: flex; align-items: center; gap: 8px; background: #f0fdf4; padding: 6px 14px; border-radius: 20px; width: fit-content; border: 1px solid #dcfce7;">
+                                    <div id="quotaDot"
+                                        style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;">
+                                    </div>
+                                    <span id="quotaText"
+                                        style="font-size: 11px; font-weight: 600; color: #166534;">Sistem Siap
+                                        (Lancar)</span>
+                                </div>
+                                <p class="text-muted mb-20" style="font-size: 0.85rem; line-height: 1.5;">Pilih foto/PDF Lembar Soal siswa atau foto langsung secara instan.</p>
+
+                                <div class="camera-wrapper"
+                                    style="margin: 0; flex-grow: 1; display: flex; flex-direction: column;">
+                                    <!-- Area Input View -->
+                                    <div class="camera-view" id="wsInputArea"
+                                        style="border-radius: 12px; flex-grow: 1; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; border: 2px dashed #cbd5e1; cursor: pointer; transition: all 0.3s ease; position: relative;">
+
+                                        <div class="icon-circle"
+                                            style="width: 70px; height: 70px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; box-shadow: var(--shadow-sm); border: 1px solid #f1f5f9;">
+                                            <ion-icon name="camera-outline"
+                                                style="font-size: 2.5rem; color: var(--primary);"></ion-icon>
+                                        </div>
+
+                                        <input type="file" id="wsCameraInput" accept="image/*,application/pdf"
+                                            capture="environment"
+                                            style="z-index: 10; width: 100%; height: 100%; position: absolute; opacity: 0; cursor: pointer;">
+
+                                        <div id="wsScanPrompt"
+                                            style="font-size: 14px; font-weight: 700; color: var(--text-secondary); text-align: center; max-width: 85%; line-height: 1.4;">
+                                            Ketuk Layar Untuk Memotret / Upload PDF</div>
+
+                                        <div id="wsScanningOverlay" class="scanning-overlay hidden">
+                                            <div class="scanning-line"></div>
+                                            <div class="scan-text">MENCARI JAWABAN...</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Area Image Preview (Hidden awalnya) -->
+                                    <div id="wsScanPreview" class="hidden mt-10" style="text-align: center;">
+                                        <img id="wsImgPreview" src="" alt="Si-Koreksi Preview"
+                                            style="width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border);">
+                                        <div id="wsPdfPreview" class="hidden"
+                                            style="padding: 40px; border: 1px solid var(--border); border-radius: 8px; background: #fafafa;">
+                                            <ion-icon name="document-text"
+                                                style="font-size: 4rem; color: var(--danger);"></ion-icon>
+                                            <p
+                                                style="margin-top: 10px; font-weight: bold; color: var(--text-secondary);">
+                                                Dokumen PDF Terpilih</p>
+                                            <p id="wsPdfName" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Area Tombol Cek dan Ulangi ditaruh di sisi bawah / akhir kotak -->
+                                <div id="wsScanControls" class="scan-controls hidden mt-15"
+                                    style="display: flex; flex-direction: column; gap: 10px;">
+
+                                    <div id="quickGroqKeyContainer" class="hidden"
+                                        style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 5px;">
+                                        <label
+                                            style="font-size: 12px; font-weight: 700; color: var(--text-color); display: block; margin-bottom: 6px;">🔑
+                                            API Key Groq Dibutuhkan</label>
+                                        <div style="display: flex; gap: 8px;">
+                                            <input type="password" id="quickGroqKey" placeholder="Paste gsk_..."
+                                                style="flex: 1; padding: 8px 10px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border); width: 100%;">
+                                            <button class="btn primary" onclick="saveQuickGroqKey()"
+                                                style="padding: 0 12px; font-size: 12px; border-radius: 6px;">Simpan
+                                                API</button>
+                                        </div>
+                                        <a href="https://console.groq.com/keys" target="_blank"
+                                            style="font-size: 11px; color: var(--primary); font-weight: 600; text-decoration: none; margin-top: 8px; display: inline-block;">Ambil
+                                            Gratis dari Groq Console ↗</a>
+                                    </div>
+
+
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn secondary outline" style="flex: 1; padding: 12px;"
+                                            onclick="resetWsScanner()">Batal</button>
+                                        <button class="btn success" style="flex: 1.5; padding: 12px;"
+                                            onclick="processWithAI()" id="btnWsProcessScan">AI (Pintar)</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. REKAPITULASI (RESULTS) -->
+                <section id="view-results" class="view hidden">
+                    <!-- Header -->
+                    <div
+                        style="background: linear-gradient(135deg, var(--primary), #6366f1); border-radius: 16px; padding: 20px; color: white; margin-bottom: 20px;">
+                        <h1 style="margin: 0; font-size: 1.4rem; color: white;">📊 Rekap Nilai Siswa</h1>
+                        <p style="margin: 5px 0 0; opacity: 0.85; font-size: 13px;">Klik kelas untuk melihat detail
+                            nilai per kategori ujian.</p>
+                    </div>
+
+                    <!-- Daftar Kelas -->
+                    <div id="resultsClassList">
+                        <div id="classGridContainer" style="margin-top: 5px;">
+                            <!-- Grid kelas akan dimuat lewat JS -->
+                        </div>
+                    </div>
+
+                    <!-- Detail Kelas -->
+                    <div id="resultsClassDetail" class="hidden">
+                        <div
+                            style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <button id="btnBackToClasses"
+                                    style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: 600;">
+                                    <ion-icon name="arrow-back-outline"></ion-icon> Kembali
+                                </button>
+                                <h2 id="currentClassTitle" style="margin: 0; font-size: 1.2rem;">Kelas</h2>
+                            </div>
+                            <button class="btn-export" id="btnExcel">
+                                <ion-icon name="download-outline"></ion-icon>
+                                <span>Ekspor Excel</span>
+                            </button>
+                        </div>
+
+                        <!-- Tab Kategori -->
+                        <div class="tabs-container mb-15"
+                            style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;">
+                            <button class="tab-btn active" data-kategori="tugas">Tugas</button>
+                            <button class="tab-btn" data-kategori="uh">Ulangan Harian</button>
+                            <button class="tab-btn" data-kategori="uts">UTS</button>
+                            <button class="tab-btn" data-kategori="uas">UAS</button>
+                        </div>
+
+                        <!-- Tabel Nilai -->
+                        <div
+                            style="background: var(--bg-card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border);">
+                            <table id="resultsTable" style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead style="background: var(--bg-main); border-bottom: 2px solid var(--border);">
+                                    <tr>
+                                        <th
+                                            style="padding: 13px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                                            Siswa</th>
+                                        <th
+                                            style="padding: 13px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                                            Mata Pelajaran</th>
+                                        <th
+                                            style="padding: 13px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                                            Skor</th>
+                                        <th
+                                            style="padding: 13px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                                            Tanggal</th>
+                                        <th style="padding: 13px 16px; text-align: right;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsListBody">
+                                    <!-- Dynamic data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. PROFIL GURU -->
+                <section id="view-profile" class="view hidden">
+                    <div class="view-header">
+                        <h1>Profil Pengguna</h1>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-col">
+                            <div class="settings-group">
+                                <h3>Identitas Guru</h3>
+                                <div class="card p-20">
+                                    <div class="profile-upload mb-20 text-center">
+                                        <div class="avatar-edit">
+                                            <div class="avatar-lg mx-auto" id="profilePageAvatar">?</div>
+                                            <button class="btn-icon-sm edit-overlay"><ion-icon
+                                                    name="camera-outline"></ion-icon></button>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Nama Lengkap & Gelar</label>
+                                        <input type="text" id="profName" placeholder="Masukkan nama lengkap...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>NIP / ID Guru</label>
+                                        <input type="text" id="profID" value="19850312 201001 1 002">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Asal Sekolah / Instansi</label>
+                                        <input type="text" id="profSchool" placeholder="Masukkan nama sekolah...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="p-school-addr">Alamat Sekolah</label>
+                                        <input type="text" id="profSchoolAddr"
+                                            placeholder="Masukkan alamat lengkap sekolah...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="p-subject-main">Mata Pelajaran Utama</label>
+                                        <select id="profSubject">
+                                            <option value="Matematika" selected>Matematika</option>
+                                            <option value="Fisika">Fisika</option>
+                                            <option value="Biologi">Biologi</option>
+                                            <option value="Kimia">Kimia</option>
+                                            <option value="Lainnya">Lainnya...</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="p-school-logo">Logo Sekolah (Background Transparan)</label>
+                                        <div class="flex-align-center gap-10 mt-5">
+                                            <input type="file" id="profLogoInput" accept="image/*"
+                                                style="font-size: 12px;">
+                                        </div>
+                                        <p class="hint mt-5" data-i18n="p-logo-hint">Gunakan format PNG transparan agar rapi di Lembar Soal.</p>
+                                    </div>
+                                    <button class="btn primary full-width" id="btnSaveProfile"
+                                        data-i18n="btn-save-changes">Simpan Perubahan</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-col">
+                            <div class="settings-group">
+                                <h3 data-i18n="theme-title">Tema Tampilan</h3>
+                                <div class="card p-20">
+                                    <div class="flex-center" style="justify-content: center;">
+                                        <div class="theme-toggle"
+                                            style="width: 100%; justify-content: center; gap: 20px;">
+                                            <button class="theme-btn active" data-theme="light"
+                                                style="flex: 1; padding: 15px;">
+                                                <ion-icon name="sunny-outline"></ion-icon> Light
+                                            </button>
+                                            <button class="theme-btn" data-theme="dark" style="flex: 1; padding: 15px;">
+                                                <ion-icon name="moon-outline"></ion-icon> Dark
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="hint mt-10 text-center" data-i18n="theme-hint">Pilih mode yang nyaman
+                                        untuk mata Anda.</p>
+                                </div>
+
+                                <div class="settings-group mt-20">
+                                    <h3 data-i18n="lang-title">Bahasa Aplikasi</h3>
+                                    <div class="card p-20">
+                                        <div class="flex-between">
+                                            <span>Pilih Bahasa</span>
+                                            <select class="select-sm" id="prefLang">
+                                                <option value="id">Bahasa Indonesia</option>
+                                                <option value="en">English</option>
+                                            </select>
+                                        </div>
+                                        <p class="hint mt-10">Bahasa utama untuk menu dan laporan.</p>
+                                    </div>
+                                </div>
+
+                                <div class="settings-group mt-20">
+                                    <h3>Manajemen Data Lokal</h3>
+                                    <div class="card p-20">
+                                        <p style="font-size: 13px; color: var(--text-color); margin-bottom: 12px;">Jika
+                                            aplikasi terasa berat atau ada data yang menyangkut (cache), bersihkan data
+                                            aplikasi di bawah ini.</p>
+                                        <button class="btn danger full-width" onclick="resetAppCache()"
+                                            style="background: var(--danger); outline: none;">
+                                            <ion-icon name="trash-outline"></ion-icon> Hapus Semua Cache & Data Nilai
+                                        </button>
+                                        <p class="hint mt-10" style="color: var(--danger);">Catatan: Ini akan menghapus
+                                            daftar kelas, nilai, dan daftar siswa dari laptop ini.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                </section>
+
+                <!-- 6. PENGATURAN API -->
+                <section id="view-settings" class="view hidden">
+                    <div class="view-header">
+                        <h1>Konfigurasi API AI</h1>
+                    </div>
+                    <div class="card p-25" style="max-width: 600px; margin: 0 auto;">
+                        <p class="hint mb-20 text-center">Gunakan Groq API Anda sendiri untuk akses pemindaian Si-Koreksi super
+                            cepat dan tanpa batas limit.</p>
+
+                        <div
+                            style="background: var(--bg-hover); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 14px;">Belum Punya API Key?</h4>
+                                <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">Dapatkan
+                                    secara gratis dari Groq Console.</p>
+                            </div>
+                            <a href="https://console.groq.com/keys" target="_blank" class="btn secondary outline"
+                                style="font-size: 12px; padding: 8px 15px;">Dapatkan API Key</a>
+                        </div>
+
+                        <div class="form-group password-wrapper">
+                            <label>API Key (Wajib)</label>
+                            <div class="input-with-icon">
+                                <input type="password" id="setGroqKey" placeholder="gsk_...">
+                                <button class="toggle-password" data-target="setGroqKey"><ion-icon
+                                        name="eye-outline"></ion-icon></button>
+                            </div>
+                        </div>
+
+                        <button class="btn primary full-width" id="btnSaveConfig">Simpan Konfigurasi</button>
+                        <button class="btn secondary full-width mt-10" id="btnResetTrial">Reset Data / Hapus
+                            Key</button>
+                    </div>
+                </section>
+
+                <section id="view-students" class="view hidden">
+                    <!-- PANEL 1: MANAJEMEN KELAS -->
+                    <div class="card p-20 mb-15 shadow-sm border-0">
+                        <div class="flex-between" style="align-items: center; margin-bottom: 15px;">
+                            <div>
+                                <h2 style="margin: 0;">Manajemen Kelas</h2>
+                                <p class="text-muted mt-5" style="font-size: 13px;">Tambah atau hapus kelas. Kelas yang
+                                    terdaftar akan muncul di menu Persiapan.</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <input type="text" id="newClassName" class="form-control"
+                                placeholder="Nama kelas, mis: X-IPA 1" style="flex: 1; min-width: 180px;">
+                            <button class="btn primary" onclick="addClass()" style="white-space: nowrap;">
+                                <ion-icon name="add-outline"></ion-icon> Tambah Kelas
+                            </button>
+                        </div>
+                        <div id="classChipsContainer" class="mt-15"
+                            style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px;">
+                            <!-- Chips kelas diisi oleh JS -->
+                            <p id="noClassesHint" class="text-muted" style="font-size: 13px; font-style: italic;">Belum
+                                ada kelas. Tambahkan kelas di atas.</p>
+                        </div>
+                    </div>
+
+                    <!-- PANEL 2: MANAJEMEN SISWA -->
+                    <div class="card p-20 shadow-sm border-0">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                            <div>
+                                <h3 id="studentListTitle" style="margin: 0;">Daftar Siswa</h3>
+                                <p class="text-muted mt-5" style="font-size: 13px;">Pilih kelas untuk melihat dan
+                                    mengelola daftar siswanya.</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <select id="studentClassSelect" class="form-control" onchange="loadStudentList()"
+                                    style="min-width: 160px;">
+                                    <option value="">-- Pilih Kelas --</option>
+                                </select>
+                                <span id="studentCount" class="badge secondary">0 Siswa</span>
+                                <button class="btn primary" onclick="openBulkImportModal()">
+                                    <ion-icon name="cloud-upload-outline"></ion-icon> Impor Siswa
+                                </button>
+                                <button class="btn accent" onclick="openAddStudentModal()"
+                                    style="background: var(--accent); color: white; border: none;">
+                                    <ion-icon name="person-add-outline"></ion-icon> Tambah Siswa
+                                </button>
+                            </div>
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="table-pro">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>Nama Lengkap</th>
+                                        <th>NISN / ID</th>
+                                        <th style="width: 80px;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentListBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted p-20" style="font-style: italic;">
+                                            Pilih kelas untuk melihat daftar siswa.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Top-tier Navigation Bar (3 items as per mockup) -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-view="dashboard">
+                    <ion-icon name="home-outline"></ion-icon>
+                    <span>Beranda</span>
+                </button>
+                <button class="nav-item" data-view="results">
+                    <ion-icon name="stats-chart-outline"></ion-icon>
+                    <span>Laporan</span>
+                </button>
+            </nav>
+
+            <!-- AI Result Backdrop / Modal -->
+            <div id="aiModal" class="modal hidden">
+                <div class="modal-content glass">
+                    <div class="modal-header">
+                        <h2 id="modalTitle">Hasil Koreksi AI</h2>
+                        <!-- Tombol silang dihapus sesuai permintaan -->
+                    </div>
+                    <div id="aiResultContent">
+                        <!-- Populated by JS -->
+                    </div>
+                    <div id="omrDebugContainer" class="hidden"
+                        style="padding: 10px; border-top: 1px solid var(--border); background: #f8fafc; text-align: center;">
+                        <h4 style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-secondary);">Preview
+                            Deteksi OMR (Debug)</h4>
+                        <div
+                            style="position: relative; display: inline-block; max-width: 100%; border: 2px solid var(--primary); border-radius: 8px; overflow: hidden;">
+                            <canvas id="omrDebugCanvas" style="max-width: 100%; height: auto; display: block;"></canvas>
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Kotak BIRU = Penanda
+                            Sudut, Titik
+                            MERAH/HIJAU = Area Deteksi Jawaban</p>
+                    </div>
+                    <div id="modalFooter" class="modal-footer"
+                        style="display: flex; justify-content: center; padding: 15px; border-top: 1px solid var(--border);">
+                        <button id="btnCloseAiModal" class="btn secondary" style="width: 150px;">
+                            <span data-i18n="btn-close">Tutup</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="studentImportModal" class="modal hidden">
+                <div class="modal-content glass">
+                    <div class="modal-header">
+                        <h2>Impor Data Siswa</h2>
+                        <button class="close-modal"
+                            onclick="document.getElementById('studentImportModal').classList.add('hidden')"><ion-icon
+                                name="close-outline"></ion-icon></button>
+                    </div>
+                    <div class="p-20">
+                        <p class="text-muted mb-10">Masukkan daftar siswa (Satu baris satu siswa). Format: <br><b>Nama
+                                Siswa;NISN</b> atau hanya <b>Nama Siswa</b></p>
+                        <textarea id="bulkStudentInput" class="form-control" rows="10"
+                            placeholder="Contoh:&#10;Ahmad Subarjo;12345678&#10;Budi Santoso;87654321&#10;Citra Lestari"></textarea>
+                        <div class="mt-20 flex-column gap-10">
+                            <button class="btn primary full-width" onclick="processBulkImport()">Mulai Impor
+                                Data</button>
+                            <button class="btn secondary outline full-width"
+                                onclick="document.getElementById('studentImportModal').classList.add('hidden')">Batal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL: Tambah Siswa Satuan -->
+            <div id="addStudentModal" class="modal hidden">
+                <div class="modal-content glass" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Tambah Siswa</h2>
+                        <button class="close-modal"
+                            onclick="document.getElementById('addStudentModal').classList.add('hidden')"><ion-icon
+                                name="close-outline"></ion-icon></button>
+                    </div>
+                    <div class="p-20">
+                        <div class="form-group">
+                            <label>Kelas</label>
+                            <select id="addStudentClass" class="form-control">
+                                <option value="">-- Pilih Kelas --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Lengkap Siswa</label>
+                            <input type="text" id="addStudentName" class="form-control" placeholder="Nama siswa">
+                        </div>
+                        <div class="form-group">
+                            <label>NISN / ID (Opsional)</label>
+                            <input type="text" id="addStudentNISN" class="form-control" placeholder="Nomor Induk Siswa">
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn primary full-width" onclick="saveSingleStudent()">Simpan Siswa</button>
+                            <button class="btn secondary outline full-width"
+                                onclick="document.getElementById('addStudentModal').classList.add('hidden')">Batal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- End responsive-layout -->
+
+        <!-- AUTH OVERLAY -->
+        <div id="authOverlay" class="auth-overlay">
+            <div class="auth-card glass" style="max-width: 420px; width: 92%; border-radius: 28px; padding: 0; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.18);">
+                <!-- Banner atas -->
+                <div style="background: linear-gradient(135deg, #4338ca, #6366f1); padding: 36px 32px 28px; text-align: center; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.07); border-radius: 50%;"></div>
+                    <div style="position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.07); border-radius: 50%;"></div>
+                    <div style="width: 64px; height: 64px; background: white; border-radius: 18px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,0.18);">
+                        <ion-icon name="qr-code-outline" style="font-size: 2.2rem; color: #4338ca;"></ion-icon>
+                    </div>
+                    <h2 style="color: white; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; margin: 0 0 6px;">SI-KORESI</h2>
+                    <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin: 0;">Sistem Koreksi Lembar Jawaban Cerdas</p>
+                </div>
+
+                <!-- Konten login -->
+                <div style="padding: 32px 32px 28px; background: var(--bg-card);">
+                    <!-- Loading state -->
+                    <div id="authLoading" class="hidden" style="text-align:center; padding: 20px 0;">
+                        <div class="spinner" style="margin: 0 auto 16px;"></div>
+                        <p id="authLoadingText" style="color: var(--text-secondary); font-size: 0.9rem;">Menghubungkan dengan Google...</p>
+                    </div>
+
+                    <!-- Login content -->
+                    <div id="loginContent">
+                        <p style="text-align: center; color: var(--text-secondary); font-size: 0.88rem; margin: 0 0 24px; line-height: 1.6;">
+                            Masuk dengan akun Google pribadi Anda.<br>
+                            <strong style="color: var(--text-color);">Setiap akun memiliki data tersendiri</strong> yang tersimpan aman.
+                        </p>
+
+                        <!-- Tombol Google -->
+                        <button id="btnGoogleLogin" onclick="handleGoogleLogin()"
+                            style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 20px; background: white; border: 1.5px solid #e2e8f0; border-radius: 14px; cursor: pointer; font-size: 0.95rem; font-weight: 600; color: #374151; transition: all 0.25s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                            <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                                <path fill="none" d="M0 0h48v48H0z"/>
+                            </svg>
+                            Masuk dengan Google
+                        </button>
+
+                        <div style="display: flex; align-items: center; gap: 12px; margin: 20px 0;">
+                            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+                            <span style="font-size: 12px; color: var(--text-muted);">atau</span>
+                            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+                        </div>
+
+                        <button onclick="enterAsGuest()"
+                            style="width: 100%; padding: 12px; background: var(--bg-side); border: 1.5px solid #e2e8f0; border-radius: 14px; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); transition: all 0.2s;">
+                            <ion-icon name="person-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>
+                            Lanjut sebagai Tamu
+                        </button>
+
+                        <p style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px; line-height: 1.6;">
+                            Dengan masuk, Anda menyetujui penyimpanan data penilaian pada akun Google Firebase Anda sendiri.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- TEMPLATE PRINT Si-Koreksi -->
+        <div id="printTemplate" class="print-only">
+            <!-- Akan diolah via JS sesuai kebutuhan (siswa / master) -->
+        </div>
+
+        <!-- Modul logic Firebase (Compat Mode for Offline/Local File Support) -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+        <script src="config.js?v=2.1"></script>
+        <script src="app.js?v=2.1"></script>
+</body>
+
+</html>
